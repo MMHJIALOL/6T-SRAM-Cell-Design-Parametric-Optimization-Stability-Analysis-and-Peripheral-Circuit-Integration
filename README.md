@@ -1,4 +1,4 @@
-<img width="1292" height="675" alt="SRAM_circuit" src="https://github.com/user-attachments/assets/168f9e0e-630a-4331-bd59-efc6f6b827fa" />##Design and Performance Analysis of a 6T SRAM Cell and Peripherals in 90nm CMOS Technology
+## Design and Performance Analysis of a 6T SRAM Cell and Peripherals in 90nm CMOS Technology
 
 ## Project Overview
 **Project Report**  
