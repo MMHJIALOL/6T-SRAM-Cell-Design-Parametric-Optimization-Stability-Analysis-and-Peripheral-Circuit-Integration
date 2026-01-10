@@ -1,4 +1,4 @@
-#Design and Performance Analysis of a 6T SRAM Cell and Peripherals in 90nm CMOS Technology
+##Design and Performance Analysis of a 6T SRAM Cell and Peripherals in 90nm CMOS Technology
 
 ## Project Overview
 **Project Report**  
