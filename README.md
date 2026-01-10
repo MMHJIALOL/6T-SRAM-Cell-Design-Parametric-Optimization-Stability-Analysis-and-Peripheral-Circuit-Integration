@@ -150,14 +150,13 @@ This graph plots the strength of the left inverter against the strength of the r
 The Pre-Charge circuit is the "Cleaning Crew" of the memory system. Before we can read any data, we need the Bit Lines to be in a known state (1.8V). If we left them at random voltages from the last operation, we would get garbage data.
 
 **Schematic:**
-![Pre-Charge Circuit](Pre%20Charge/Pre_Charge_circuit.png)
+![Pre-Charge Circuit](https://github.com/MMHJIALOL/Design-and-Performance-Analysis-of-a-6T-SRAM-Cell-and-Peripherals-in-90nm-CMOS-Technology/blob/main/Pre_Charge_circuit.png)
 
 **Testbench:**
-![Pre-Charge Testbench](Pre%20Charge/Pre_Charge_testbench.png)
+![Pre-Charge Testbench]([Pre%20Charge/Pre_Charge_testbench.png](https://github.com/MMHJIALOL/Design-and-Performance-Analysis-of-a-6T-SRAM-Cell-and-Peripherals-in-90nm-CMOS-Technology/blob/main/Pre_Charge_testbench.png))
 
 **Timing Analysis:**
 ![Pre-Charge Timing](Pre%20Charge/Pre_Charge_timing_diagram.png)
-![Pre-Charge Trend](Pre%20Charge/Pre_Charge_i_trend.png)
 
 **How it works:**
 1.  **The Reset Signal:** In the timing diagram, the Red trace is the Pre-Charge Enable signal.
