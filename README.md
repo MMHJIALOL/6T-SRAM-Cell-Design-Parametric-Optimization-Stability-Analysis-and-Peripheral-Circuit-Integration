@@ -1,264 +1,251 @@
-## Design and Performance Analysis of a 6T SRAM Cell and Peripherals in 90nm CMOS Technology
+# Design and Performance Analysis of a 6T SRAM Cell and Peripherals
 
-## Project Overview
-**Project Report**  
-**Technology:** GPDK 90nm CMOS  
-**Tools:** Cadence Virtuoso
+**Project Report** **Implemented using 90nm CMOS Technology**
 
----
-
-## Table of Contents
-1. [Introduction](#introduction)
-2. [6T SRAM Cell Design](#6t-sram-cell-design)
-3. [Write Operation Analysis](#write-operation-analysis)
-4. [Read Operation Analysis](#read-operation-analysis)
-5. [Stability Analysis (Butterfly Curve)](#stability-analysis-butterfly-curve)
-6. [Peripheral Circuits](#peripheral-circuits)
-7. [Top Design: 4x4 Memory Array](#top-design-4x4-memory-array)
-8. [Conclusion](#conclusion)
+**Author:** Ishaan Singhal  
+**Institution:** Delhi Technological University
 
 ---
 
-## Introduction
+## 1. Introduction
 
-Static Random Access Memory (SRAM) is essentially the "muscle memory" of modern computing. It is used wherever speed is the absolute priority, such as in the Cache Memory (L1, L2, L3) of a CPU. The word "Static" means that unlike its cheaper cousin, Dynamic RAM (DRAM), SRAM does not need to be constantly refreshed to keep its data. As long as power is supplied, the data stays locked in.
+Static Random Access Memory (SRAM) is a critical component in modern computing architectures, serving as high-speed cache memory (L1, L2, L3) for Central Processing Units (CPUs). The term "Static" indicates that, unlike Dynamic RAM (DRAM), SRAM utilizes a bistable latching mechanism to retain data as long as power is supplied, eliminating the need for periodic refresh cycles.
 
-While DRAM uses a single capacitor to store charge (which acts like a leaky bucket), SRAM uses a team of six transistors to form a latch. This makes it significantly faster and more robust, but also more expensive in terms of silicon area.
+In the context of 90nm CMOS technology, designing SRAM poses specific challenges regarding leakage currents and stability. While DRAM relies on a single capacitor for charge storage (which is subject to leakage and requires constant refreshing), SRAM employs a six-transistor configuration to form a robust storage cell. This architecture offers significantly lower latency and higher stability, making it ideal for time-critical data access, albeit at the cost of increased silicon area and complexity compared to DRAM.
 
 ### Project Objective
-The main goal of this project is to build a complete 16-bit (4x4) SRAM memory array from scratch. We are not just designing the storage cell; we are building the entire support system that makes it work. The project is divided into four key stages:
-1.  **The Core:** Design and simulation of the 6T SRAM Cell (The storage unit).
-2.  **The Health Check:** Analysis of Read and Write Stability (Butterfly Curves).
-3.  **The Support Crew:** Design of Peripheral Circuits (Pre-Charge, Sense Amp, Write Driver).
-4.  **Integration:** Connecting everything into a fully functional 4x4 Array.
+The primary objective of this project is to design, simulate, and analyze a complete 16-bit (4x4) SRAM memory array. The scope extends beyond the fundamental storage unit to include the necessary peripheral circuitry required for practical operation. The project is structured into four key phases:
+
+1. **Core Design:** Schematic design and transient simulation of the 6T SRAM Cell, focusing on transistor sizing for read/write stability.
+2. **Stability Analysis:** Extraction of the Static Noise Margin (SNM) using Butterfly Curves to quantitatively assess the cell's immunity to noise.
+3. **Peripheral Circuit Design:**
+    * **Pre-Charge Circuit:** Ensures bit lines are equalized to $V_{DD}$ prior to read operations to prevent accidental data corruption.
+    * **Sense Amplifier:** Detects and amplifies small differential voltages on the bit lines, allowing for faster read speeds.
+    * **Write Driver:** Provides the necessary high-current drive to overwrite the cell's internal feedback loop during write operations.
+4. **Integration:** Interfacing all components to form a functional 4x4 Memory Array and verifying timing constraints.
+
+This report presents the schematic design, testbench configurations, and comprehensive timing analyses for each subsystem.
 
 ---
 
-## 6T SRAM Cell Design
+## 2. 6T SRAM Cell Design
 
-The fundamental building block of this memory array is the 6-Transistor (6T) SRAM cell. This is where the single bit of binary information (Logic 0 or Logic 1) actually lives.
+The fundamental building block of the memory array is the 6-Transistor (6T) SRAM cell, capable of storing a single bit of binary information.
 
 ### Circuit Explanation
-The circuit uses four transistors to form two cross-coupled inverters. Think of these as two people holding hands in a circle—if one lets go, the loop breaks. This loop creates a "Latch" that locks the data in a stable state. The remaining two transistors are the "Access Gates" (or doors) that connect this private loop to the outside world (the Bit Lines) only when we ask them to.
+The circuit topology consists of two cross-coupled CMOS inverters forming a positive feedback loop. This configuration creates a bistable latch capable of maintaining two stable states (Logic 0 or Logic 1). The storage nodes, denoted as Q and Qbar, are always complements of each other. These nodes are accessed via two NMOS pass-transistors (Access Transistors), controlled by the **Word Line** (**WL**).
 
-<img width="1292" height="675" alt="SRAM_circuit" src="https://github.com/user-attachments/assets/d9118ab7-3b8b-476d-a0bc-6d5d1ba4b52b" />
+![Schematic of the 6T SRAM Cell.](SRAM/SRAM_circuit.png)
 
-
-**How it works:**
-*   **Hold Mode (Storage):** When the Word Line (WL) is Low (0V), the doors are closed. The internal latch is isolated from the noisy outside world. It sits there reinforcing its own data indefinitely.
-*   **Read/Write Mode (Access):** When WL is High (1.8V), the doors open. The Bit Lines (BL and BLbar) can now "talk" to the internal storage nodes (Q and Qbar).
+**Operational Modes:**
+1. **Hold Mode:** When the **Word Line (WL)** is Low (0V), the access transistors are cut off (OFF state). The internal latch is physically isolated from the bit lines. The cross-coupled inverters reinforce each other's state, maintaining the stored data indefinitely as long as power is applied.
+2. **Read/Write Mode:** When **WL** is High (1.8V), the access transistors turn on. This creates a low-impedance path between the bit lines (**BL** and **BLbar**) and the internal storage nodes. This connection allows external circuits to either sense the stored voltage (Read) or force a new voltage level (Write).
 
 ---
 
-## Write Operation Analysis
+## 3. SRAM Write Operation Analysis
 
-Writing to an SRAM cell is an act of brute force. The internal latch wants to keep its old value. To change it, we use powerful external "Write Drivers" to overpower the internal transistors and force them to flip.
+The write operation is a "force" operation. The internal cross-coupled inverters naturally resist any change in state. To overwrite the data, the external Write Drivers must be significantly stronger than the internal pull-up transistors of the SRAM cell.
 
 ### Write Logic '1'
-To write a '1', we need to force the internal node Q to High and Qbar to Low. We do this by setting the external Bit Line (BL) to a strong 1.8V and the Bit Line Bar (BLbar) to a strong 0V.
+To write a logic '1' into a cell currently storing '0', we must raise the voltage of node Q to $V_{DD}$ and lower Qbar to GND. This is achieved by driving the external bit line **BL** to 1.8V and **BLbar** to 0V.
 
-**Testbench Setup:**
-<img width="812" height="647" alt="SRAM_final_testbench_write1" src="https://github.com/user-attachments/assets/f37ff547-7c35-4a46-9186-be219c17f4b5" />
+![Testbench Setup for Write '1' Operation.](SRAM/SRAM_final_testbench_write1.png)
 
+![Waveform results for Write '1'.](SRAM/SRAM_timing_diagram_write1.png)
 
-**Timing Analysis:**
-<img width="1896" height="693" alt="SRAM_timing_diagram_write1" src="https://github.com/user-attachments/assets/8dd808f0-b1c7-4894-bcea-7ffcbd8c341a" />
-
-
-**The Write "1" Sequence:**
-*   **The Setup:** Initially, the Word Line (Red trace) is Low. The cell is closed.
-*   **The Force:** The Write Driver sets BL to High (Purple) and BLbar to Low (Cyan). They are waiting at the door.
-*   **The Breach:** At 2.0ns, the Word Line goes High (Red pulse). The doors open.
-*   **The Flip:** Look at the internal nodes Q (Green) and Qbar (Pink). Even though they might have been holding a '0' before, the strong external lines force Q up to 1.8V and Qbar down to 0V.
-*   **Success:** The lines cross, and the cell now firmly holds a '1'.
+**Analysis of Waveforms:**
+1. **Setup:** Initially, the **Word Line** (Red trace) is Low, and the cell is in Hold mode.
+2. **Driver Activation:** The **Write Driver** is activated, driving **BL** to High (Purple trace) and **BLbar** to Low (Cyan trace). At this stage, the cell is still isolated.
+3. **Access & Overpowering:** At 2.0ns, the **Word Line** is asserted High. The access transistor connects the strong 0V on **BLbar** to the internal node Qbar.
+4. **State Transition:** The external driver pulls node Qbar (Pink trace) down to 0V, overpowering the internal weak PMOS. Due to the cross-coupling, as Qbar drops, it turns ON the PMOS on the Q side, helping pull node Q (Green trace) up to 1.8V.
+5. **Completion:** The feedback loop is now locked in the new state, storing a '1'.
 
 ### Write Logic '0'
-To write a '0', we simply reverse the attack. We force the Bit Line (BL) to 0V and the Bit Line Bar (BLbar) to 1.8V.
+To write a logic '0', the polarity is reversed. We must force node Q to 0V and node Qbar to 1.8V.
 
-**Testbench Setup:**
-![Write 0 Testbench](SRAM/SRAM_final_testbench_write0.png)
-<img width="785" height="608" alt="SRAM_final_testbench_write0" src="https://github.com/user-attachments/assets/5e209400-8f46-4a6f-a143-e7a72dc87043" />
+![Testbench Setup for Write '0' Operation.](SRAM/SRAM_final_testbench_write0.png)
 
-**Timing Analysis:**
-<img width="1912" height="700" alt="SRAM_timing_diagram_write0" src="https://github.com/user-attachments/assets/fc9167d8-c6e0-42f5-aba9-d7666285b03c" />
+![Waveform results for Write '0'.](SRAM/SRAM_timing_diagram_write0.png)
 
-
-**The Write "0" Sequence:**
-*   The inputs are flipped: BL is Low and BLbar is High.
-*   When the Word Line (WL) opens the door, the strong 0V on BL drains the charge out of node Q.
-*   Simultaneously, the 1.8V on BLbar rushes into node Qbar.
-*   **The Result:** Q (Cyan trace) crashes down to 0V, and Qbar (Pink trace) shoots up to 1.8V.
-*   The cell has been successfully overwritten to store a '0'.
+**Analysis of Waveforms:**
+1. **Initialization:** The inputs are configured with **BL** Low and **BLbar** High.
+2. **Discharge Path:** Upon **WL** activation, the access transistor connecting **BL** to node Q turns on. Since **BL** is held strongly at 0V by the write driver, it acts as a sink.
+3. **Flipping the Latch:** The charge on node Q (Cyan trace) is drained through the access transistor. Simultaneously, the High voltage on **BLbar** charges node Qbar (Pink trace).
+4. **Result:** Node Q transitions to 0V, and Qbar transitions to 1.8V. The cell has successfully flipped its state to store a '0'.
 
 ---
 
-## Read Operation Analysis
+## 4. SRAM Read Operation Analysis
 
-Reading is much more delicate than writing. In writing, we "shouted" at the cell. In reading, we have to "listen" to it. We pre-charge the lines to full voltage, disconnect the power, and then let the tiny SRAM cell gently pull one of the lines down.
+The read operation is delicate because it must be non-destructive. Unlike the write operation where we overpower the cell, during a read, the cell must be strong enough to influence the bit lines without flipping its own state (Read Stability).
 
 ### Read Logic '1'
-The cell is holding a '1' (Q=1, Qbar=0).
+Condition: The cell is storing a '1' (Q=1, Qbar=0).
 
-**Testbench Setup:**
-<img width="855" height="658" alt="SRAM_final_testbench_read1" src="https://github.com/user-attachments/assets/7ea448b6-597a-4952-aeed-7bb140fc2a3b" />
+![Testbench Setup for Read '1'.](SRAM/SRAM_final_testbench_read1.png)
 
+![Waveform results for Read '1'.](SRAM/SRAM_timing_diagram_read1.png)
 
-**Timing Analysis:**
-<img width="1908" height="690" alt="SRAM_timing_diagram_read1" src="https://github.com/user-attachments/assets/3ab9af32-54c6-4adb-ac12-f6e05f8c1815" />
-
-
-**The Logic of the Read:**
-1.  **Pre-Charge:** Both BL and BLbar start at a full 1.8V (High). Imagine two full buckets of water.
-2.  **Access:** When WL (Red) goes High, the cell connects to these buckets.
-3.  **The Action:** Since the cell stores a '1', the internal Qbar side is at 0V (Ground).
-4.  **The Discharge:** The 0V at Qbar acts like a drain hole. It starts sucking the charge out of the BLbar line.
-5.  **The Evidence:** Look at the Cyan trace (BLbar). It starts drooping down. Meanwhile, the Purple trace (BL) stays perfectly full because the Q side is High.
-6.  **Conclusion:** This splitting of the lines (one stays high, one drops) is how the system knows a '1' is stored.
+**Operational Logic:**
+1. **Pre-Charge Phase:** Before the read begins, both **BL** and **BLbar** are pre-charged to exactly $V_{DD}$ (1.8V). This equalization is crucial to prevent offsets.
+2. **Access:** When **WL** goes High, the cell is connected to the floating bit lines.
+3. **Discharge Mechanism:** Since the internal node Qbar is Low (0V), the access transistor on that side creates a path from **BLbar** to ground.
+4. **Sensing:** The voltage on **BLbar** (Cyan trace) begins to drop slowly as it discharges through the small SRAM cell transistors. Meanwhile, **BL** (Purple trace) stays at 1.8V because it connects to the High node Q.
+5. **Differential Development:** This process creates a voltage difference ($\Delta V$) between the two bit lines. The Sense Amplifier will detect this split to interpret a logic '1'.
 
 ### Read Logic '0'
-The cell holds a '0' (Q=0, Qbar=1).
+Condition: The cell is storing a '0' (Q=0, Qbar=1).
 
-**Testbench Setup:**
-<img width="852" height="682" alt="SRAM_final_testbench_read0" src="https://github.com/user-attachments/assets/c0138c4a-ef4e-4223-974f-ec7b15aa15a0" />
+![Testbench Setup for Read '0'.](SRAM/SRAM_final_testbench_read0.png)
 
+![Waveform results for Read '0'.](SRAM/SRAM_timing_diagram_read0.png)
 
-**Timing Analysis:**
-<img width="1915" height="696" alt="SRAM_timing_diagram_read0" src="https://github.com/user-attachments/assets/55e0f202-259d-43de-9299-0789f23f4851" />
-
-
-**The Logic of the Read:**
-1.  Again, both lines start full (1.8V).
-2.  When WL opens the door, the cell connects.
-3.  This time, since Q is 0V (Low), it is the Q side that acts as the drain.
-4.  **The Evidence:** In the waveform, you can see the Cyan trace (BL) dropping. The Red trace (BLbar) stays High.
-5.  Because the *main* Bit Line dropped, the system knows a '0' was stored.
+**Operational Logic:**
+1. **Pre-Charge:** Both bit lines start at 1.8V.
+2. **Discharge Mechanism:** Upon access, node Q is at 0V. Therefore, the current flows from the **BL** bit line into the cell, discharging **BL**.
+3. **Signal Generation:** **BL** (Cyan trace) voltage drops, while **BLbar** (Red trace) maintains its charge because Qbar is High.
+4. **Detection:** The drop in **BL** relative to **BLbar** indicates to the system that a '0' is stored.
 
 ---
 
-## Stability Analysis (Butterfly Curve)
+## 5. Static Noise Margin (SNM) Analysis
 
-How do we know the cell won't accidentally flip when we try to read it? We measure this using the **Static Noise Margin (SNM)**, visualized as the "Butterfly Curve."
+### Objective
+To determine the read stability of the SRAM bit-cell by extracting the Static Noise Margin (SNM) from the voltage transfer characteristics (VTC) of the cross-coupled inverters. The SNM is the maximum noise voltage that can be tolerated by the SRAM cell without flipping its state.
 
-**Testbench Setup:**
-<img width="2564" height="1164" alt="testbench" src="https://github.com/user-attachments/assets/85b80302-c826-4f27-8622-7b0913c91c0d" />
+### Methodology
+The SNM was calculated by finding the side length of the largest square that fits within the "eyes" of the butterfly curve. This was achieved mathematically using a coordinate rotation method to measure the maximum diagonal width of the lobes, effectively transforming the coordinate system to align with the VTC diagonal.
 
+### Formula Used
+The stability at any given voltage point was calculated using the following expression, effectively rotating the coordinate system by $45^{\circ}$ to find the perpendicular distance between curves:
 
-**Butterfly Curve Result:**
-<img width="3488" height="1216" alt="buterfly curve" src="https://github.com/user-attachments/assets/b651f074-6248-4813-8c1c-08dc862e67ab" />
-<img width="3840" height="1338" alt="timing diagram" src="https://github.com/user-attachments/assets/ddd14288-1e64-4c96-aa6b-c55aced3b8a3" />
+$$
+SNM = \frac{1}{\sqrt{2}} \times |V_{out} - V_{inverted}|
+$$
 
+In the Cadence Calculator, this is implemented as:  
+`abs((Vout - Vmirror) * 0.707)`
 
+### Testbench
+![Testbench for Stability Analysis.](SRAM_butterfly_curve/testbench.png)
 
-**Reading the Butterfly:**
-This graph plots the strength of the left inverter against the strength of the right inverter.
-*   The "Wings" are the voltage transfer curves.
-*   The **"Eyes"** (the square openings in the middle) represent the stability.
-*   **The Rule:** The larger the square that fits inside these eyes, the more stable the cell is. If the eyes were closed or small, a tiny bit of electrical noise could corrupt our data. Our wide, open eyes indicate a very robust design.
+### Graphical Analysis
 
----
-
-## Peripheral Circuits
-
-### Pre-Charge Circuit
-The Pre-Charge circuit is the "Cleaning Crew" of the memory system. Before we can read any data, we need the Bit Lines to be in a known state (1.8V). If we left them at random voltages from the last operation, we would get garbage data.
-
-**Schematic:**
-<img width="832" height="677" alt="Pre_Charge_circuit" src="https://github.com/user-attachments/assets/9c231e0e-515e-4346-9893-8808e6f56ff8" />
+<img width="844" height="709" alt="butterfly curve v2" src="https://github.com/user-attachments/assets/ffe0ff62-3ad7-4e90-b5a8-13d67b145fff" />
 
 
-**Testbench:**
-<img width="820" height="657" alt="Pre_Charge_testbench" src="https://github.com/user-attachments/assets/434c401b-6c79-4df9-bc85-aa22032c26ff" />
+**Butterfly Curve:** This figure displays the superimposed DC transfer characteristics of the two inverters. Two stable states (lobes) are visible, representing logic '1' and logic '0' retention. Visual inspection reveals an asymmetry between the pull-up and pull-down networks, resulting in unequal eye openings. The "eye" represents the safe margin for operation; a larger eye implies a more robust cell.
+
+<img width="646" height="736" alt="batman curve" src="https://github.com/user-attachments/assets/62dfebbe-baf2-4cfa-ad6a-1210b5c9ba49" />
 
 
-**Timing Analysis:**
-<img width="1911" height="692" alt="Pre_Charge_timing_diagram" src="https://github.com/user-attachments/assets/7e978857-0751-44ea-a96d-e486628beae6" />
 
+**SNM "Batman" Plot:** This is a graphical representation of the eye width across the voltage sweep. The peaks of this plot correspond directly to the SNM of each stable state. The height of the "wings" in this plot indicates the numeric value of the stability margin.
 
-**How it works:**
-1.  **The Reset Signal:** In the timing diagram, the Red trace is the Pre-Charge Enable signal.
-2.  **The Action:** When this signal drops to 0V, the transistors turn ON. It connects the Bit Lines directly to the power supply.
-3.  **The Result:** Look at the Bit Lines (Cyan and Green). They might start at 0V (empty), but the moment the Pre-Charge hits, they shoot up to 1.8V.
+### Simulation Results
+* **Left Lobe Stability (Eye 1):** 627.5 mV
+* **Right Lobe Stability (Eye 2):** 381.1 mV
 
-### Sense Amplifier
-The Sense Amplifier is the "Spy" of the operation. The SRAM cell is weak; it takes a long time to pull a Bit Line all the way to 0V. We don't want to wait that long. The Sense Amp detects a *tiny* voltage difference (like 0.2V) and instantly amplifies it to a full digital "0" or "1".
-
-**Schematic:**
-<img width="1528" height="688" alt="Sense_Amplifier_timing_circuit" src="https://github.com/user-attachments/assets/27da8c62-a25e-422f-aba3-839e37c15028" />
-
-
-**Testbench:**
-<img width="845" height="642" alt="Sense_Amplifier_tb" src="https://github.com/user-attachments/assets/3cb94ec9-79fc-45d8-a209-c29096575dff" />
-
-
-**Timing Analysis (Read 1 & Read 0):**
-<img width="1917" height="695" alt="Sense_Amplifier_timing_diagram_read1" src="https://github.com/user-attachments/assets/e5ad3e50-507f-43c6-a083-13a0c0cbe6b6" />
-
-<img width="1917" height="688" alt="Sense_Amplifier_timing_diagram_read0" src="https://github.com/user-attachments/assets/4692cb3f-7e9b-4f16-a5df-293663437dfb" />
-
-
-**The Decision Moment:**
-1.  **The Race:** Look at the inputs (Red and Green lines). They start falling, but one falls slightly faster. This gap is the "data."
-2.  **The Trigger:** The Orange trace is the "Sense Enable" (SE) signal. At this moment, the Sense Amp wakes up.
-3.  **The Split:** As soon as SE goes High, the amplifier catches that tiny gap and rips the lines apart.
-4.  **The Output:** Look at the Cyan and Purple lines. One shoots to 1.8V, the other crashes to 0V. This proves the amplifier can take a "whisper" of a signal and turn it into a clear digital decision.
-
-### Write Driver
-The Write Driver is the "Bully." The SRAM cell tries to hold onto its data with a feedback loop. The Write Driver is designed with huge transistors to simply overpower that loop and force new data in.
-
-**Schematic:**
-<img width="966" height="653" alt="Write_Driver_circuit" src="https://github.com/user-attachments/assets/d27e3a1a-12ea-4ad0-be48-581382894c97" />
-
-
-**Testbench:**
-<img width="1300" height="524" alt="Write_Driver_tb" src="https://github.com/user-attachments/assets/f9d1336a-66b3-4ffb-984e-7837d5da48a1" />
-
-
-**Timing Analysis:**
-<img width="1918" height="701" alt="Write_Driver_timing_diagram" src="https://github.com/user-attachments/assets/4a49e665-1570-405a-b64a-cc7c0c68a47f" />
-
-
-**How the Bully works:**
-1.  **The Command:** The Top Red trace is the Data Input toggling between 0 and 1.
-2.  **The Permission:** The Green trace is "Write Enable" (WE). The driver only acts when this is High.
-3.  **The Force:** When WE is High, look at the Bit Lines (Bottom Cyan and Purple). They follow the Data perfectly and snap to 1.8V or 0V instantly.
+### Conclusion
+The overall Static Noise Margin is determined by the weakest link in the cell. Therefore, the final SNM is **381.1 mV**. The disparity between the two lobes suggests a sizing imbalance in the bit-cell transistors (specifically the pull-up to pull-down ratio), which determines the cell's immunity to noise during read operations. However, 381.1 mV is generally considered a sufficient margin for 90nm technology.
 
 ---
 
-## Top Design: 4x4 Memory Array
+## 6. Pre-Charge Circuit
 
-This is the Final Boss. We connect the Cells, the Cleaning Crew (Pre-Charge), the Spy (Sense Amp), and the Bully (Write Driver) into a complete 4-row by 4-column memory grid.
+The **Pre-Charge Circuit** is a vital support block. Before any read operation, the bit lines are essentially large capacitors that may hold residual voltages from previous cycles. The Pre-Charge circuit resets these lines to a known high voltage ($V_{DD}$).
 
-**Top Level Schematic:**
-<img width="1057" height="664" alt="Top_Design_circuit" src="https://github.com/user-attachments/assets/7d9373ad-7569-4f6b-b266-211e17bc7fd6" />
+### Circuit and Testbench
+![Pre-Charge Circuit Schematic.](Pre%20Charge/Pre_Charge_circuit.png)
 
+![Pre-Charge Testbench.](Pre%20Charge/Pre_Charge_testbench.png)
+
+### Timing Analysis
+![Pre-Charge Timing Diagram.](Pre%20Charge/Pre_Charge_timing_diagram.png)
+
+![Current Trend during Pre-Charge.](Pre%20Charge/Pre_Charge_i_trend.png)
+
+**Detailed Analysis:**
+1. **Activation:** The circuit utilizes 3 PMOS transistors. The Red trace indicates the Pre-Charge Enable signal (active low). PMOS transistors are used because they pass a strong logic '1' (1.8V).
+2. **Charging Phase:** When the enable signal drops to 0V, the PMOS transistors activate, creating a low-resistance path from the power supply to the Bit Lines.
+3. **Rapid Rise:** The Bit Lines (Cyan and Green traces) charge rapidly to 1.8V. The speed of this charge determines the maximum frequency of the memory.
+4. **Equalization:** The third transistor (the equalizer) connects **BL** directly to **BLbar**. This shorts the two lines together, ensuring that even if there is a slight manufacturing mismatch, the voltage difference between the lines is exactly zero before the read cycle begins.
+
+---
+
+## 7. Sense Amplifier
+
+The **Sense Amplifier** is a differential sensing circuit designed to accelerate read operations. Since the SRAM cell has limited drive strength, discharging the heavy bit line capacitance fully to 0V would take a long time (nanoseconds). The Sense Amplifier detects a very small voltage difference (approx. 100mV - 200mV) and amplifies it to full-swing digital logic levels.
+
+### Circuit and Testbench
+![Sense Amplifier Schematic.](Sense%20Amplifier/Sense_Amplifier_timing_circuit.png)
+
+![Sense Amplifier Testbench.](Sense%20Amplifier/Sense_Amplifier_tb.png)
+
+### Timing Analysis
+![Sense Amplifier Response (Reading '1').](Sense%20Amplifier/Sense_Amplifier_timing_diagram_read1.png)
+
+![Sense Amplifier Response (Reading '0').](Sense%20Amplifier/Sense_Amplifier_timing_diagram_read0.png)
+
+**Operation Analysis:**
+1. **Input Development:** The SRAM cell slowly discharges one bit line, creating a small voltage difference ($\Delta V$) at the inputs (Red and Green lines).
+2. **Activation:** The Orange trace represents the "Sense Enable" (**SE**) signal. This signal must be timed perfectly: if enabled too early, it reads noise; if too late, speed is lost.
+3. **Positive Feedback:** Upon SE activation, the internal latch of the sense amplifier engages. The positive feedback loop amplifies the small $\Delta V$ exponentially.
+4. **Full Swing Output:** The outputs (Cyan and Purple) snap to 1.8V and 0V almost instantly. This converts the analog differential voltage into a clean digital "1" or "0".
+
+---
+
+## 8. Write Driver
+
+The **Write Driver** acts as a high-drive strength buffer. While the Sense Amplifier listens, the Write Driver commands. Its primary function is to override the weak internal feedback of the SRAM cell during write operations, ensuring data is successfully latched regardless of the previous state.
+
+### Circuit and Testbench
+![Write Driver Schematic.](Write%20Driver/Write_Driver_circuit.png)
+
+![Write Driver Testbench.](Write%20Driver/Write_Driver_tb.png)
+
+### Timing Analysis
+![Write Driver Output Waveforms.](Write%20Driver/Write_Driver_timing_diagram.png)
+
+**Functional Analysis:**
+1. **Input Logic:** The Top Red trace shows the Data Input toggling between high and low states.
+2. **Write Enable Control:** The Green trace is the "Write Enable" (**WE**) signal. The driver is active only when this signal is High.
+3. **Driving the Lines:** When **WE** is High, the output inverters drive the Bit Lines (Bottom Cyan and Purple) to 1.8V and 0V. The driver transistors are sized much larger than the SRAM cell transistors to ensure they can force the bit line voltage quickly.
+4. **High-Impedance (Hi-Z) State:** When **WE** is Low, the driver enters a high-impedance state (floating). This disconnects the driver from the bit lines, ensuring it does not short out the Sense Amplifier during a read operation.
+
+---
+
+## 9. Top Level Design (4x4 Array)
+
+The final integration combines the SRAM Cell Array, Pre-Charge Circuitry, Sense Amplifiers, and Write Drivers into a 4x4 memory grid. This verifies that all components work together in a realistic timing sequence.
+
+### Circuit Diagram
+![Schematic of the complete 4x4 SRAM Array.](Top%20Design/Top_Design_circuit.png)
 
 ### Full System Timing Analysis
-We ran a "Full Cycle" simulation: Write a value -> Reset -> Read the value back.
+A "Full Cycle" simulation was performed to validate the system. The sequence is: **Write Operation** $\rightarrow$ **Pre-Charge** $\rightarrow$ **Read Operation**.
 
-**Write '1' / Read '1' Cycle:**
-<img width="2774" height="1268" alt="Top_Design_tb_readwrite1" src="https://github.com/user-attachments/assets/8582cabf-c282-49ce-a853-56e6a34a36ee" />
-<img width="3820" height="1327" alt="Top_Design_timing_diagram_readwrite1" src="https://github.com/user-attachments/assets/6ea3cfc5-54bc-445d-8cab-e565aca4b2f0" />
+![Testbench setup for Top Design Read/Write '1'.](Top%20Design/Top_Design_tb_readwrite1.png)
 
+![Full System Timing: Write '1' followed by Read '1'.](Top%20Design/Top_Design_timing_diagram_readwrite1.png)
 
-**The Story of the Simulation (Write 1 / Read 1):**
-1.  **Write Cycle (First Half):** The Write Enable signal goes High. The Driver blasts data into the selected cell. You can see the internal node Q (Cyan trace) flipping to the new value.
-2.  **Pre-Charge (The Gap):** The system resets. The lines charge up to 1.8V.
-3.  **Read Cycle (Second Half):** The Write Driver stays quiet. The Word Line opens. The Sense Amp fires.
-4.  **The Victory:** Look at the Sense Amplifier output (Purple/Pink traces). It transitions to the exact same logic level we wrote in step 1.
+**Simulation Cycle (Write 1 / Read 1):**
+1. **Write Cycle (0 - 10ns):** The Write Enable signal is asserted. The Write Driver forces the selected cell's internal node Q (Cyan trace) to transition from Low to High.
+2. **Pre-Charge (10ns - 15ns):** The Pre-Charge signal goes Low, resetting both bit lines to 1.8V. This prepares the array for the next operation.
+3. **Read Cycle (15ns - 25ns):** The Word Line is activated. The Sense Amplifier detects the bit line differential.
+4. **Verification:** The Sense Amplifier output (Purple/Pink trace) transitions High, matching the logic level written in step 1. This confirms successful storage and retrieval.
 
-**Write '0' / Read '0' Cycle:**
-<img width="2760" height="1212" alt="Top_Design_tb_readwrite0" src="https://github.com/user-attachments/assets/d1680159-bc3f-4026-a70c-f0944825422b" />
+![Testbench setup for Top Design Read/Write '0'.](Top%20Design/Top_Design_tb_readwrite0.png)
 
-<img width="2760" height="1212" alt="Top_Design_tb_readwrite0" src="https://github.com/user-attachments/assets/3c1be2c7-4924-4ff6-8055-e76e857990a6" />
+![Full System Timing: Write '0' followed by Read '0'.](Top%20Design/Top_Design_timing_diagram_readwrite0.png)
 
-
-**The Story of the Simulation (Write 0 / Read 0):**
-1.  **Write Cycle:** The Write Enable goes High with Data set to 0. The internal node Q drops to 0V.
-2.  **Read Cycle:** After pre-charging, the Word Line opens. The Sense Amplifier detects the low value stored in the cell.
-3.  **Confirmation:** The output stays Low, confirming that the '0' was successfully stored and retrieved.
+**Simulation Cycle (Write 0 / Read 0):**
+1. **Write Cycle:** Write Enable is High with Data input '0'. The internal node Q discharges to 0V.
+2. **Read Cycle:** After the pre-charge interval, the Word Line opens for the read operation.
+3. **Verification:** The Sense Amplifier output remains Low, correctly identifying the stored '0'. The stability of the output confirms that the read operation did not disturb the stored data (Read Stability).
 
 ---
 
 ## Conclusion
-
-This project report detailed the design and analysis of a 16-bit SRAM array in 180nm CMOS technology. We successfully designed the 6T cell with proper sizing for stability. We verified that the Pre-Charge circuit cleans the lines, the Sense Amplifier detects weak signals, and the Write Driver successfully overwrites data. Finally, the integration of these blocks into a 4x4 array was simulated, demonstrating correct Write and Read operations with stable timing margins. The design meets the objectives of high-speed and reliable data storage.
+This project report has detailed the design and analysis of a 16-bit SRAM array implemented in 90nm CMOS technology. The 6T cell was sized to ensure adequate Static Noise Margin (SNM) of 381.1 mV, providing robustness against noise. The peripheral circuits were verified for functionality: the Pre-Charge circuit effectively equalizes bit lines to prevent offsets, the Sense Amplifier provides rapid differential sensing to speed up access times, and the Write Driver ensures reliable write margins by overpowering the cell. The integrated 4x4 array simulation demonstrates correct write and read functionality with stable timing, meeting the project objectives for high-speed reliable memory design.
