@@ -1,0 +1,16 @@
+#
+# Edit Lock-Stake file. CAUTION: Please do not change.
+#
+# Information about current Edit Lock Owner.
+#
+LockStakeVersion               1.1
+LoginName                      work
+HostName                       work-eda
+ProcessIdentifier              3340
+ProcessCreationTime_UTC        1768742456
+ProcessCreationTime_Readable   Sun Jan 18 21:20:56 2026 CST
+AppIdentifier                  /opt/IC617/tools/dfII/bin/64bit/virtuoso
+OSType                         lnx86
+ReasonForPlacingEditLock       
+FilePathUsedToEditLock         /home/work/SRAM_Project/SRAM/SRAM_V2/constraint/prop.cfg
+TimeEditLocked                 Wed Jan 21 02:59:07 2026 CST
