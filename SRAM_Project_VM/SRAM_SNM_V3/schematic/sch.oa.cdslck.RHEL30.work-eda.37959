@@ -1,0 +1,16 @@
+#
+# Edit Lock-Stake file. CAUTION: Please do not change.
+#
+# Information about current Edit Lock Owner.
+#
+LockStakeVersion               1.1
+LoginName                      work
+HostName                       work-eda
+ProcessIdentifier              37959
+ProcessCreationTime_UTC        1768413719
+ProcessCreationTime_Readable   Thu Jan 15 02:01:59 2026 CST
+AppIdentifier                  OA File System Design Manager
+OSType                         unix
+ReasonForPlacingEditLock       OpenAccess edit lock
+FilePathUsedToEditLock         /home/work/SRAM_Project/SRAM/SRAM_SNM_V3/schematic/sch.oa.cdslck
+TimeEditLocked                 Thu Jan 15 02:13:00 2026 CST
